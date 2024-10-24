@@ -18,6 +18,17 @@ type Server struct {
 	port int
 }
 
+// 定义当前客户端连接的所绑定的handle api(目前写死，以后优化，应用用户自定义）
+func CallBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
+	// 回显业务
+	fmt.Println("[call back] to client")
+	if _, err := conn.Write(data); err != nil {
+		fmt.Println("write back buf err", err)
+		return err
+	}
+	return nil
+}
+
 // 开启网络服务
 func (s *Server) Start() {
 	fmt.Printf("[Start] server listenner at IP : %s, Port : %d\n", s.IP, s.port)
@@ -36,6 +47,10 @@ func (s *Server) Start() {
 			return
 		}
 		fmt.Println("[Start] server start success\n")
+
+		var cid uint32
+		cid = 0
+
 		// 3. 阻塞等待客户端连接，处理客户端业务（读写）
 		for {
 			// 如果有客户端连接，阻塞会返回
@@ -45,26 +60,12 @@ func (s *Server) Start() {
 				continue
 			}
 
-			// 已经建立连接，做一些业务，简单回显
-			go func() {
-				for {
-					buf := make([]byte, 1024)
-					cnt, err := conn.Read(buf)
-					if err != nil {
-						fmt.Printf("[Start] read err : %s", err.Error())
-						continue
-					}
+			// 将处理新连接的业务方法和conn绑定 得到连接模块
+			dealConn := NewConnection(conn, cid, CallBackToClient)
+			cid++
 
-					fmt.Println("[recv] ", string(buf[:cnt]))
-
-					// 回显功能
-					if _, err := conn.Write(buf[:cnt]); err != nil {
-						fmt.Printf("[Start] write err : %s", err.Error())
-						continue
-					}
-					// fmt.Printf("[Start] write success : %s\n", conn.RemoteAddr().String())
-				}
-			}()
+			// 启动当前的连接业务处理
+			go dealConn.Start()
 		}
 	}()
 
