@@ -16,17 +16,8 @@ type Server struct {
 	IP string
 	// 服务器绑定的端口
 	port int
-}
-
-// 定义当前客户端连接的所绑定的handle api(目前写死，以后优化，应用用户自定义）
-func CallBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
-	// 回显业务
-	fmt.Println("[call back] to client")
-	if _, err := conn.Write(data); err != nil {
-		fmt.Println("write back buf err", err)
-		return err
-	}
-	return nil
+	// 当前的Server添加一个router，server注册的连接对应的处理业务
+	Router ziface.IRouter
 }
 
 // 开启网络服务
@@ -61,7 +52,7 @@ func (s *Server) Start() {
 			}
 
 			// 将处理新连接的业务方法和conn绑定 得到连接模块
-			dealConn := NewConnection(conn, cid, CallBackToClient)
+			dealConn := NewConnection(conn, cid, s.Router)
 			cid++
 
 			// 启动当前的连接业务处理
@@ -88,6 +79,12 @@ func (s *Server) Serve() {
 	select {}
 }
 
+// 添加路由方法
+func (s *Server) AddRouter(router ziface.IRouter) {
+	s.Router = router
+	fmt.Println("[AddRouter] Zinx server name : ", s.Name)
+}
+
 // 初始化服务器
 func NewServer(name string) ziface.IServer {
 	s := &Server{
@@ -95,6 +92,7 @@ func NewServer(name string) ziface.IServer {
 		IPVersion: "tcp4",
 		IP:        "0.0.0.0",
 		port:      7777,
+		Router:    nil,
 	}
 	return s
 }
